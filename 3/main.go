@@ -30,7 +30,7 @@ func setHandlerWithMutex(w http.ResponseWriter, r *http.Request) {
 	defer mu.Unlock()
 	result = string(body)
 
-	fmt.Fprintf(w, "Saved: %s", result)
+	_, _ = fmt.Fprintf(w, "Saved: %s", result)
 }
 
 func getHandlerWithMutex(w http.ResponseWriter, r *http.Request) {
@@ -43,11 +43,11 @@ func getHandlerWithMutex(w http.ResponseWriter, r *http.Request) {
 	defer mu.Unlock()
 
 	if result == "" {
-		fmt.Fprint(w, "No data stored")
+		_, _ = fmt.Fprint(w, "No data stored")
 		return
 	}
 
-	fmt.Fprint(w, result)
+	_, _ = fmt.Fprint(w, result)
 }
 
 // Using channel
@@ -85,7 +85,7 @@ func (s *Store) Get() string {
 	return <-s.getCh
 }
 
-var store = NewStore()
+var store *Store
 
 func setHandlerWithChannel(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -100,9 +100,11 @@ func setHandlerWithChannel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	value := string(body)
-	store.Set(value)
+	if store != nil {
+		store.Set(value)
+	}
 
-	fmt.Fprintf(w, "Saved: %s", value)
+	_, _ = fmt.Fprintf(w, "Saved: %s", value)
 }
 
 func getHandlerWithChannel(w http.ResponseWriter, r *http.Request) {
@@ -111,14 +113,19 @@ func getHandlerWithChannel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	value := store.Get()
-
-	if value == "" {
-		fmt.Fprint(w, "No data stored")
+	if store == nil {
+		_, _ = fmt.Fprint(w, "No data stored")
 		return
 	}
 
-	fmt.Fprint(w, value)
+	value := store.Get()
+
+	if value == "" {
+		_, _ = fmt.Fprint(w, "No data stored")
+		return
+	}
+
+	_, _ = fmt.Fprint(w, value)
 }
 
 func main() {
@@ -127,6 +134,7 @@ func main() {
 	http.HandleFunc("/mutex/get", getHandlerWithMutex)
 
 	// Channel approach
+	store = NewStore()
 	http.HandleFunc("/channel/set", setHandlerWithChannel)
 	http.HandleFunc("/channel/get", getHandlerWithChannel)
 

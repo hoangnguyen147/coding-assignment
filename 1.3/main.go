@@ -29,7 +29,7 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	defer mu.Unlock()
 	result = string(body)
 
-	fmt.Fprintf(w, "Saved: %s", result)
+	_, _ = fmt.Fprintf(w, "Saved: %s", result)
 }
 
 func main() {

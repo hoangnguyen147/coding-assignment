@@ -120,7 +120,7 @@ func TestGetHandlerWithMutex(t *testing.T) {
 func TestNewStore(t *testing.T) {
 	s := NewStore()
 	if s == nil {
-		t.Error("NewStore returned nil")
+		t.Fatal("NewStore returned nil")
 	}
 	if s.setCh == nil || s.getCh == nil {
 		t.Error("channels not initialized")
@@ -233,4 +233,3 @@ func TestGetHandlerWithChannel(t *testing.T) {
 		t.Errorf("got %q, want %q", val, "channel value")
 	}
 }
-

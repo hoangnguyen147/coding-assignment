@@ -330,7 +330,10 @@ func TestHandlePaymentSuccess(t *testing.T) {
 	}
 
 	var resp PaymentResponse
-	json.NewDecoder(w.Body).Decode(&resp)
+	decoder := json.NewDecoder(w.Body)
+	if err := decoder.Decode(&resp); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
 
 	if resp.Status != "success" {
 		t.Errorf("Expected status 'success', got '%s'", resp.Status)
@@ -385,7 +388,10 @@ func TestHandlePaymentIdempotency(t *testing.T) {
 	service.HandlePayment(w1, req1)
 
 	var resp1 PaymentResponse
-	json.NewDecoder(w1.Body).Decode(&resp1)
+	decoder1 := json.NewDecoder(w1.Body)
+	if err := decoder1.Decode(&resp1); err != nil {
+		t.Fatalf("Failed to decode response1: %v", err)
+	}
 
 	req2 := httptest.NewRequest(http.MethodPost, "/pay", bytes.NewBuffer(jsonBody))
 	req2.Header.Set("Content-Type", "application/json")
@@ -394,7 +400,10 @@ func TestHandlePaymentIdempotency(t *testing.T) {
 	service.HandlePayment(w2, req2)
 
 	var resp2 PaymentResponse
-	json.NewDecoder(w2.Body).Decode(&resp2)
+	decoder2 := json.NewDecoder(w2.Body)
+	if err := decoder2.Decode(&resp2); err != nil {
+		t.Fatalf("Failed to decode response2: %v", err)
+	}
 
 	if resp1.TransactionID != resp2.TransactionID {
 		t.Error("Idempotent requests should return same transaction ID")
