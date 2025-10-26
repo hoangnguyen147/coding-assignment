@@ -96,7 +96,6 @@ func (s *PaymentService) ProcessPayment(req PaymentRequest) (*PaymentResponse, e
 
 	s.balances[req.UserID] = newBalance
 
-
 	txn := &Transaction{
 		TransactionID: req.TransactionID,
 		UserID:        req.UserID,
@@ -154,7 +153,8 @@ func (s *PaymentService) HandlePayment(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req PaymentRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	decoder := json.NewDecoder(r.Body)
+	if err := decoder.Decode(&req); err != nil {
 		log.Printf("[%s] ERROR: Invalid request body: %v", traceID, err)
 		http.Error(w, fmt.Sprintf("Invalid request body: %v", err), http.StatusBadRequest)
 		return
@@ -171,7 +171,8 @@ func (s *PaymentService) HandlePayment(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(resp); err != nil {
+	encoder := json.NewEncoder(w)
+	if err := encoder.Encode(resp); err != nil {
 		log.Printf("[%s] ERROR: Failed to encode response: %v", traceID, err)
 	}
 }

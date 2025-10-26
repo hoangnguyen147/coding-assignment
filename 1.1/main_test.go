@@ -271,7 +271,10 @@ func TestGetTransactionSuccess(t *testing.T) {
 		TransactionID: "txn-001",
 	}
 
-	service.ProcessPayment(req)
+	_, err := service.ProcessPayment(req)
+	if err != nil {
+		t.Fatalf("ProcessPayment failed: %v", err)
+	}
 
 	txn, exists := service.GetTransaction("txn-001")
 	if !exists {
