@@ -59,9 +59,9 @@ func (s *PaymentService) ProcessPayment(req PaymentRequest) (*PaymentResponse, e
 		log.Printf("[%s] ERROR: userID is required", traceID)
 		return nil, fmt.Errorf("userID is required")
 	}
-	if req.Amount <= 0 {
-		log.Printf("[%s] ERROR: amount must be greater than 0", traceID)
-		return nil, fmt.Errorf("amount must be greater than 0")
+	if req.Amount == 0 {
+		log.Printf("[%s] ERROR: amount cannot be zero", traceID)
+		return nil, fmt.Errorf("amount cannot be zero")
 	}
 
 	s.mu.Lock()
@@ -80,14 +80,22 @@ func (s *PaymentService) ProcessPayment(req PaymentRequest) (*PaymentResponse, e
 		}, nil
 	}
 
-	balance := s.balances[req.UserID]
-	if balance < req.Amount {
-		log.Printf("[%s] ERROR: insufficient funds for user %s: balance=%.2f, required=%.2f",
-			traceID, req.UserID, balance, req.Amount)
-		return nil, fmt.Errorf("insufficient funds: balance=%.2f, required=%.2f", balance, req.Amount)
+	balance, exists := s.balances[req.UserID]
+	if !exists {
+		// user doesn't exist, create new user with 0 balance
+		balance = 0
+		s.balances[req.UserID] = 0
+	}
+	newBalance := balance + req.Amount
+
+	if newBalance < 0 {
+		log.Printf("[%s] ERROR: insufficient funds for user %s: balance=%.2f, amount=%.2f, resulting=%.2f",
+			traceID, req.UserID, balance, req.Amount, newBalance)
+		return nil, fmt.Errorf("insufficient funds: balance=%.2f, amount=%.2f, resulting=%.2f", balance, req.Amount, newBalance)
 	}
 
-	s.balances[req.UserID] = balance - req.Amount
+	s.balances[req.UserID] = newBalance
+
 
 	txn := &Transaction{
 		TransactionID: req.TransactionID,
@@ -98,8 +106,13 @@ func (s *PaymentService) ProcessPayment(req PaymentRequest) (*PaymentResponse, e
 	}
 	s.transactions[req.TransactionID] = txn
 
-	log.Printf("[%s] SUCCESS: Processed payment %s for user %s, amount %.2f",
-		traceID, req.TransactionID, req.UserID, req.Amount)
+	operation := "deducted"
+	if req.Amount > 0 {
+		operation = "added"
+	}
+
+	log.Printf("[%s] SUCCESS: Processed payment %s for user %s, amount %.2f (%s), new balance %.2f",
+		traceID, req.TransactionID, req.UserID, req.Amount, operation, newBalance)
 
 	return &PaymentResponse{
 		TraceID:       traceID,

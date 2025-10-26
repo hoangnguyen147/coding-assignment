@@ -14,7 +14,7 @@ func TestProcessPaymentSuccess(t *testing.T) {
 
 	req := PaymentRequest{
 		UserID:        "user123",
-		Amount:        100.00,
+		Amount:        -100.00,
 		TransactionID: "txn-001",
 	}
 
@@ -29,8 +29,8 @@ func TestProcessPaymentSuccess(t *testing.T) {
 	if resp.TransactionID != "txn-001" {
 		t.Errorf("Expected transactionID 'txn-001', got '%s'", resp.TransactionID)
 	}
-	if resp.Amount != 100.00 {
-		t.Errorf("Expected amount 100.00, got %.2f", resp.Amount)
+	if resp.Amount != -100.00 {
+		t.Errorf("Expected amount -100.00, got %.2f", resp.Amount)
 	}
 	if resp.TraceID == "" {
 		t.Error("TraceID should not be empty")
@@ -38,7 +38,7 @@ func TestProcessPaymentSuccess(t *testing.T) {
 
 	balance := service.GetBalance("user123")
 	if balance != 900.00 {
-		t.Errorf("Expected balance 900.00, got %.2f", balance)
+		t.Errorf("Expected balance 900.00 (1000 - 100), got %.2f", balance)
 	}
 }
 
@@ -48,7 +48,7 @@ func TestProcessPaymentIdempotency(t *testing.T) {
 
 	req := PaymentRequest{
 		UserID:        "user123",
-		Amount:        100.00,
+		Amount:        -100.00,
 		TransactionID: "txn-001",
 	}
 
@@ -68,7 +68,7 @@ func TestProcessPaymentIdempotency(t *testing.T) {
 
 	balance := service.GetBalance("user123")
 	if balance != 900.00 {
-		t.Errorf("Balance should be 900.00 after idempotent request, got %.2f", balance)
+		t.Errorf("Balance should be 900.00 (1000 - 100) after idempotent request, got %.2f", balance)
 	}
 }
 
@@ -78,7 +78,7 @@ func TestProcessPaymentInsufficientFunds(t *testing.T) {
 
 	req := PaymentRequest{
 		UserID:        "user123",
-		Amount:        100.00,
+		Amount:        -100.00,
 		TransactionID: "txn-001",
 	}
 
@@ -123,14 +123,6 @@ func TestProcessPaymentValidation(t *testing.T) {
 				TransactionID: "txn-001",
 			},
 		},
-		{
-			name: "Negative Amount",
-			req: PaymentRequest{
-				UserID:        "user123",
-				Amount:        -50.00,
-				TransactionID: "txn-001",
-			},
-		},
 	}
 
 	for _, tt := range tests {
@@ -140,6 +132,79 @@ func TestProcessPaymentValidation(t *testing.T) {
 				t.Errorf("Expected error for %s", tt.name)
 			}
 		})
+	}
+}
+
+func TestProcessPaymentPositiveAmount(t *testing.T) {
+	service := NewPaymentService()
+	service.SetBalance("user123", 100.00)
+
+	req := PaymentRequest{
+		UserID:        "user123",
+		Amount:        50.00,
+		TransactionID: "txn-add-001",
+	}
+
+	resp, err := service.ProcessPayment(req)
+	if err != nil {
+		t.Fatalf("ProcessPayment failed: %v", err)
+	}
+
+	if resp.Status != "success" {
+		t.Errorf("Expected status 'success', got '%s'", resp.Status)
+	}
+
+	balance := service.GetBalance("user123")
+	expectedBalance := 150.00
+	if balance != expectedBalance {
+		t.Errorf("Expected balance %.2f (100 + 50), got %.2f", expectedBalance, balance)
+	}
+}
+
+func TestProcessPaymentNegativeAmount(t *testing.T) {
+	service := NewPaymentService()
+	service.SetBalance("user123", 100.00)
+
+	req := PaymentRequest{
+		UserID:        "user123",
+		Amount:        -30.00,
+		TransactionID: "txn-deduct-001",
+	}
+
+	resp, err := service.ProcessPayment(req)
+	if err != nil {
+		t.Fatalf("ProcessPayment failed: %v", err)
+	}
+
+	if resp.Status != "success" {
+		t.Errorf("Expected status 'success', got '%s'", resp.Status)
+	}
+
+	balance := service.GetBalance("user123")
+	expectedBalance := 70.00
+	if balance != expectedBalance {
+		t.Errorf("Expected balance %.2f (100 - 30), got %.2f", expectedBalance, balance)
+	}
+}
+
+func TestProcessPaymentNegativeAmountInsufficientFunds(t *testing.T) {
+	service := NewPaymentService()
+	service.SetBalance("user123", 50.00)
+
+	req := PaymentRequest{
+		UserID:        "user123",
+		Amount:        -100.00,
+		TransactionID: "txn-deduct-fail",
+	}
+
+	_, err := service.ProcessPayment(req)
+	if err == nil {
+		t.Error("Expected error for insufficient funds with negative amount")
+	}
+
+	balance := service.GetBalance("user123")
+	if balance != 50.00 {
+		t.Errorf("Balance should remain 50.00, got %.2f", balance)
 	}
 }
 
@@ -246,7 +311,7 @@ func TestHandlePaymentSuccess(t *testing.T) {
 
 	reqBody := PaymentRequest{
 		UserID:        "user123",
-		Amount:        100.00,
+		Amount:        -100.00,
 		TransactionID: "txn-001",
 	}
 	jsonBody, _ := json.Marshal(reqBody)
@@ -305,7 +370,7 @@ func TestHandlePaymentIdempotency(t *testing.T) {
 
 	reqBody := PaymentRequest{
 		UserID:        "user123",
-		Amount:        100.00,
+		Amount:        -100.00,
 		TransactionID: "txn-001",
 	}
 	jsonBody, _ := json.Marshal(reqBody)
@@ -334,6 +399,6 @@ func TestHandlePaymentIdempotency(t *testing.T) {
 
 	balance := service.GetBalance("user123")
 	if balance != 900.00 {
-		t.Errorf("Expected balance 900.00, got %.2f", balance)
+		t.Errorf("Expected balance 900.00 (1000 - 100), got %.2f", balance)
 	}
 }
