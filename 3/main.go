@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"sync"
 )
 
@@ -40,12 +41,12 @@ func getHandlerWithMutex(w http.ResponseWriter, r *http.Request) {
 
 	mu.Lock()
 	defer mu.Unlock()
-	
+
 	if result == "" {
 		fmt.Fprint(w, "No data stored")
 		return
 	}
-	
+
 	fmt.Fprint(w, result)
 }
 
@@ -111,12 +112,12 @@ func getHandlerWithChannel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	value := store.Get()
-	
+
 	if value == "" {
 		fmt.Fprint(w, "No data stored")
 		return
 	}
-	
+
 	fmt.Fprint(w, value)
 }
 
@@ -124,10 +125,13 @@ func main() {
 	// Mutex approach
 	http.HandleFunc("/mutex/set", setHandlerWithMutex)
 	http.HandleFunc("/mutex/get", getHandlerWithMutex)
-	
+
 	// Channel approach
 	http.HandleFunc("/channel/set", setHandlerWithChannel)
 	http.HandleFunc("/channel/get", getHandlerWithChannel)
-	
-	http.ListenAndServe(":8080", nil)
+
+	if err := http.ListenAndServe(":8080", nil); err != nil {
+		fmt.Fprintf(os.Stderr, "Server error: %v\n", err)
+		os.Exit(1)
+	}
 }
