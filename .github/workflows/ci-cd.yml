@@ -1,0 +1,66 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test:
+    name: Test All Modules
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: ['1.1', '1.2', '1.3', '3']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.24.3'
+
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Download dependencies for ${{ matrix.module }}
+        working-directory: ./${{ matrix.module }}
+        run: go mod download
+
+      - name: Run tests for ${{ matrix.module }}
+        working-directory: ./${{ matrix.module }}
+        run: go test -v -race -coverprofile=coverage.out ./...
+
+      - name: Upload coverage for ${{ matrix.module }}
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./${{ matrix.module }}/coverage.out
+          flags: unittests
+          name: codecov-${{ matrix.module }}
+
+  lint:
+    name: Lint All Modules
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        module: ['1.1', '1.2', '1.3', '3']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.24.3'
+
+      - name: golangci-lint for ${{ matrix.module }}
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+          working-directory: ./${{ matrix.module }}
+
